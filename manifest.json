@@ -1,0 +1,21 @@
+{
+  "name": "Våra Elpriser",
+  "short_name": "Elpriser",
+  "description": "Håll koll på elpriset för att ladda bilen smart",
+  "start_url": "./elpriser.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

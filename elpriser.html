@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Elpriser | Välj Område</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --container-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --color-cheap: #22c55e;
+            --color-normal: #f59e0b;
+            --color-expensive: #ef4444;
+            --track-bg: #334155;
+            --btn-bg: #2563eb;
+            --btn-hover: #1d4ed8;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            max-width: 800px; 
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+        }
+
+        /* ----- Startmeny: Layout för Karta + Knappar ----- */
+        #start-menu {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+            margin-top: 2rem;
+            background-color: var(--container-bg);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
+
+        .map-section {
+            flex: 1;
+            text-align: center;
+        }
+
+        .map-image {
+            width: 100%;
+            max-width: 250px; 
+            height: auto;
+            border-radius: 8px;
+        }
+
+        .buttons-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .zone-btn {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            border: 2px solid var(--track-bg);
+            padding: 1.5rem;
+            border-radius: 12px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center; 
+        }
+
+        .zone-btn:hover {
+            border-color: var(--btn-bg);
+            background-color: #273549;
+            transform: translateX(5px); 
+        }
+
+        @media (max-width: 600px) {
+            #start-menu {
+                flex-direction: column;
+                padding: 1rem;
+            }
+        }
+
+        /* ----- Diagram-vy ----- */
+        .chart-container {
+            background-color: var(--container-bg);
+            border-radius: 12px;
+            padding: 1.5rem 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .bar-wrapper {
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+
+        .bar-time {
+            width: 45px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: bold;
+        }
+
+        .bar-track {
+            flex: 1;
+            background-color: var(--track-bg);
+            height: 24px;
+            margin: 0 12px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .bar {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease-in-out;
+            min-width: 2px;
+        }
+
+        .bar.cheap { background-color: var(--color-cheap); }
+        .bar.normal { background-color: var(--color-normal); }
+        .bar.expensive { background-color: var(--color-expensive); }
+
+        .bar-price {
+            width: 55px;
+            text-align: right;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+
+        /* Navigering och Dagsväljare */
+        .navigation-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .back-btn {
+            flex: 1;
+            background-color: var(--container-bg);
+            color: var(--text-main);
+            border: 2px solid var(--track-bg);
+            padding: 0.75rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .back-btn:hover {
+            border-color: var(--btn-bg);
+            background-color: #273549;
+        }
+
+        .toggle-container {
+            flex: 2;
+            display: flex;
+            background-color: var(--container-bg);
+            padding: 4px;
+            border-radius: 8px;
+            border: 2px solid var(--track-bg);
+        }
+
+        .toggle-btn {
+            flex: 1;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            padding: 0.5rem;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .toggle-btn.active {
+            background-color: var(--btn-bg);
+            color: white;
+        }
+
+        #status-text {
+            text-align: center;
+            font-weight: bold;
+            color: var(--text-muted);
+            margin: 3rem 0;
+            font-size: 1.1rem;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1 id="main-title">Välj Elområde</h1>
+        <p id="main-subtitle" class="subtitle">Klicka på ditt område för att se dagens priser</p>
+    </header>
+
+    <main>
+        <div id="start-menu">
+            <div class="map-section">
+                <img src="elomraden-karta.png" alt="Karta över Sveriges elområden" class="map-image">
+            </div>
+
+            <div class="buttons-section">
+                <button class="zone-btn" onclick="selectZone('SE1')">SE1 - Luleå</button>
+                <button class="zone-btn" onclick="selectZone('SE2')">SE2 - Sundsvall</button>
+                <button class="zone-btn" onclick="selectZone('SE3')">SE3 - Stockholm</button>
+                <button class="zone-btn" onclick="selectZone('SE4')">SE4 - Malmö</button>
+            </div>
+        </div>
+
+        <div id="chart-view" style="display: none;">
+            
+            <div class="navigation-controls">
+                <button class="back-btn" onclick="showSelector()">← Karta</button>
+                
+                <div class="toggle-container">
+                    <button id="btn-today" class="toggle-btn active" onclick="changeDay('today')">Idag</button>
+                    <button id="btn-tomorrow" class="toggle-btn" onclick="changeDay('tomorrow')">Imorgon</button>
+                </div>
+            </div>
+
+            <p id="status-text" style="display: none;">Laddar in priser...</p>
+            
+            <div id="chart" class="chart-container">
+                </div>
+        </div>
+    </main>
+
+    <script>
+        // Globala variabler för att hålla koll på appens nuvarande tillstånd
+        let currentZone = '';
+        let currentDay = 'today';
+
+        function showSelector() {
+            document.getElementById('chart-view').style.display = 'none';
+            document.getElementById('start-menu').style.display = 'flex';
+            document.getElementById('main-title').innerText = 'Välj Elområde';
+            document.getElementById('main-subtitle').innerText = 'Klicka på ditt område för att se dagens priser';
+        }
+
+        // Denna funktion körs när man väljer ett elområde från startmenyn
+        function selectZone(zone) {
+            currentZone = zone;
+            changeDay('today'); // Starta alltid med att visa dagens priser
+        }
+
+        // Denna funktion körs när man klickar på "Idag" eller "Imorgon"
+        function changeDay(day) {
+            currentDay = day;
+            
+            // Uppdatera vilken knapp som ser aktiv ut i gränssnittet
+            document.getElementById('btn-today').classList.toggle('active', day === 'today');
+            document.getElementById('btn-tomorrow').classList.toggle('active', day === 'tomorrow');
+            
+            // Starta laddningen av priserna för det valda området och dygnet
+            loadPrices(currentZone, currentDay);
+        }
+
+        async function loadPrices(zone, day) {
+            document.getElementById('start-menu').style.display = 'none';
+            document.getElementById('chart-view').style.display = 'block';
+            
+            const chartContainer = document.getElementById('chart');
+            const statusText = document.getElementById('status-text');
+            
+            chartContainer.innerHTML = ''; 
+            chartContainer.style.display = 'none';
+            statusText.style.display = 'block';
+            statusText.innerText = "Laddar in priser...";
+
+            const dayText = day === 'today' ? 'Dagens' : 'Morgondagens';
+            document.getElementById('main-title').innerText = `${dayText} Elpriser (${zone})`;
+            document.getElementById('main-subtitle').innerText = 'Snittpris per timme (inkl. 25% moms)';
+
+            // Räkna ut rätt datum baserat på om användaren valt idag eller imorgon
+            const targetDate = new Date();
+            if (day === 'tomorrow') {
+                targetDate.setDate(targetDate.getDate() + 1);
+            }
+
+            const year = targetDate.getFullYear();
+            const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+            const dateDay = String(targetDate.getDate()).padStart(2, '0');
+
+            const apiUrl = `https://www.elprisetjustnu.se/api/v1/prices/${year}/${month}-${dateDay}_${zone}.json`;
+
+            try {
+                const response = await fetch(apiUrl);
+                
+                // Om API:et skickar tillbaka ett felmeddelande (t.ex. 404 för att morgondagens fil inte finns än)
+                if (!response.ok) {
+                    throw new Error("Data saknas");
+                }
+
+                const data = await response.json();
+
+                const hourlyPrices = {};
+                data.forEach(item => {
+                    const dateObj = new Date(item.time_start);
+                    const hour = dateObj.getHours().toString().padStart(2, '0');
+                    if (!hourlyPrices[hour]) hourlyPrices[hour] = [];
+                    hourlyPrices[hour].push(item.SEK_per_kWh);
+                });
+
+                const finalAverages = [];
+                let maxPrice = 0; 
+
+                for (let i = 0; i < 24; i++) {
+                    const hourStr = i.toString().padStart(2, '0');
+                    if (hourlyPrices[hourStr]) {
+                        const sum = hourlyPrices[hourStr].reduce((a, b) => a + b, 0);
+                        const avgSEK = sum / hourlyPrices[hourStr].length; 
+                        const avgOre = (avgSEK * 100 * 1.25).toFixed(1);
+                        
+                        if (parseFloat(avgOre) > maxPrice) maxPrice = parseFloat(avgOre);
+
+                        finalAverages.push({
+                            hour: hourStr + ":00",
+                            price: parseFloat(avgOre)
+                        });
+                    }
+                }
+
+                statusText.style.display = 'none';
+                chartContainer.style.display = 'flex';
+
+                finalAverages.forEach(hourData => {
+                    const widthPercent = (hourData.price / (maxPrice * 1.1)) * 100;
+
+                    let priceClass = 'normal';
+                    if (hourData.price <= 50) priceClass = 'cheap';
+                    if (hourData.price >= 100) priceClass = 'expensive';
+
+                    const barWrapper = document.createElement('div');
+                    barWrapper.className = 'bar-wrapper';
+                    
+                    barWrapper.innerHTML = `
+                        <span class="bar-time">${hourData.hour}</span>
+                        <div class="bar-track">
+                            <div class="bar ${priceClass}" style="width: ${widthPercent}%;"></div>
+                        </div>
+                        <span class="bar-price">${hourData.price}</span>
+                    `;
+
+                    chartContainer.appendChild(barWrapper);
+                });
+
+            } catch (error) {
+                // Snygg felhantering om morgondagens priser inte har släppts av Nord Pool än
+                if (day === 'tomorrow') {
+                    statusText.innerHTML = "Morgondagens priser är inte tillgängliga ännu.<br><span style='font-size:0.9rem; font-weight:normal; color:#64748b;'>Nord Pool publicerar vanligtvis nästa dygns priser strax efter kl 13:00.</span>";
+                } else {
+                    statusText.innerText = "Kunde inte hämta priserna. Kontrollera din uppkoppling.";
+                }
+                console.error("Ett fel uppstod:", error);
+            }
+        }
+    </script>
+    <script>
+        // Registrera Service Worker för PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker är registrerad!'))
+                    .catch(err => console.log('Service Worker registrering misslyckades:', err));
+            });
+        }
+    </script>
+</body>
+</html>
