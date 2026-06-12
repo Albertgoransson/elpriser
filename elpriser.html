@@ -41,8 +41,8 @@
             margin-bottom: 2rem;
         }
 
-        /* ----- Startmeny: Layout för Karta + Knappar ----- */
-        #start-menu {
+        /* ----- Gemensamma menyer/paneler ----- */
+        .menu-panel {
             display: flex;
             gap: 2rem;
             align-items: center;
@@ -72,7 +72,7 @@
             gap: 12px;
         }
 
-        .zone-btn {
+        .zone-btn, .choice-btn {
             background-color: var(--bg-color);
             color: var(--text-main);
             border: 2px solid var(--track-bg);
@@ -85,15 +85,16 @@
             text-align: center; 
         }
 
-        .zone-btn:hover {
+        .zone-btn:hover, .choice-btn:hover {
             border-color: var(--btn-bg);
             background-color: #273549;
             transform: translateX(5px); 
         }
 
+        /* Säkerställ att kartan hamnar underst på mobilen */
         @media (max-width: 600px) {
-            #start-menu {
-                flex-direction: column;
+            .menu-panel {
+                flex-direction: column-reverse;
                 padding: 1rem;
             }
         }
@@ -149,11 +150,12 @@
             font-weight: bold;
         }
 
-        /* Navigering och Dagsväljare */
+        /* Navigering och kontroller */
         .navigation-controls {
             display: flex;
             gap: 10px;
             margin-bottom: 1rem;
+            align-items: center;
         }
 
         .back-btn {
@@ -167,6 +169,7 @@
             font-weight: bold;
             cursor: pointer;
             transition: all 0.2s;
+            text-align: center;
         }
 
         .back-btn:hover {
@@ -201,6 +204,24 @@
             color: white;
         }
 
+        /* Dropdown för månader */
+        .month-select {
+            flex: 2;
+            background-color: var(--container-bg);
+            color: var(--text-main);
+            border: 2px solid var(--track-bg);
+            padding: 0.65rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .month-select:focus {
+            border-color: var(--btn-bg);
+        }
+
         #status-text {
             text-align: center;
             font-weight: bold;
@@ -215,15 +236,14 @@
 
     <header>
         <h1 id="main-title">Välj Elområde</h1>
-        <p id="main-subtitle" class="subtitle">Klicka på ditt område för att se dagens priser</p>
+        <p id="main-subtitle" class="subtitle">Klicka på ditt område för att starta</p>
     </header>
 
     <main>
-        <div id="start-menu">
+        <div id="start-menu" class="menu-panel">
             <div class="map-section">
                 <img src="elomraden-karta.png" alt="Karta över Sveriges elområden" class="map-image">
             </div>
-
             <div class="buttons-section">
                 <button class="zone-btn" onclick="selectZone('SE1')">SE1 - Luleå</button>
                 <button class="zone-btn" onclick="selectZone('SE2')">SE2 - Sundsvall</button>
@@ -232,60 +252,89 @@
             </div>
         </div>
 
-        <div id="chart-view" style="display: none;">
-            
+        <div id="choice-menu" class="menu-panel" style="display: none;">
+            <div class="buttons-section" style="width: 100%; flex: none;">
+                <button class="choice-btn" onclick="navigateToTrack('current')">Nuvarande priser (Idag/Imorgon)</button>
+                <button class="choice-btn" onclick="navigateToTrack('history')">Historisk data (Månadsbaksida)</button>
+                <button class="back-btn" onclick="showZoneSelector()" style="margin-top: 1rem;">← Ändra Elområde</button>
+            </div>
+        </div>
+
+        <div id="current-view" style="display: none;">
             <div class="navigation-controls">
-                <button class="back-btn" onclick="showSelector()">← Karta</button>
-                
+                <button class="back-btn" onclick="showChoiceMenu()">← Meny</button>
                 <div class="toggle-container">
                     <button id="btn-today" class="toggle-btn active" onclick="changeDay('today')">Idag</button>
                     <button id="btn-tomorrow" class="toggle-btn" onclick="changeDay('tomorrow')">Imorgon</button>
                 </div>
             </div>
+            <p id="status-text-current" id="status-text" style="text-align:center; color:var(--text-muted); margin:3rem 0; font-weight:bold;">Laddar...</p>
+            <div id="chart-current" class="chart-container"></div>
+        </div>
 
-            <p id="status-text" style="display: none;">Laddar in priser...</p>
-            
-            <div id="chart" class="chart-container">
-                </div>
+        <div id="history-view" style="display: none;">
+            <div class="navigation-controls">
+                <button class="back-btn" onclick="showChoiceMenu()">← Meny</button>
+                <select id="month-dropdown" class="month-select" onchange="changeHistoricalMonth()">
+                    </select>
+            </div>
+            <p id="status-text-history" style="text-align:center; color:var(--text-muted); margin:3rem 0; font-weight:bold; line-height:1.5;">Välj en månad för att räkna ut historiskt snitt...</p>
+            <div id="chart-history" class="chart-container"></div>
         </div>
     </main>
 
     <script>
-        // Globala variabler för att hålla koll på appens nuvarande tillstånd
         let currentZone = '';
         let currentDay = 'today';
 
-        function showSelector() {
-            document.getElementById('chart-view').style.display = 'none';
+        // Återställ till helt nollställt läge (Huvudmeny)
+        function showZoneSelector() {
             document.getElementById('start-menu').style.display = 'flex';
+            document.getElementById('choice-menu').style.display = 'none';
+            document.getElementById('current-view').style.display = 'none';
+            document.getElementById('history-view').style.display = 'none';
             document.getElementById('main-title').innerText = 'Välj Elområde';
-            document.getElementById('main-subtitle').innerText = 'Klicka på ditt område för att se dagens priser';
+            document.getElementById('main-subtitle').innerText = 'Klicka på ditt område för att starta';
         }
 
-        // Denna funktion körs när man väljer ett elområde från startmenyn
         function selectZone(zone) {
             currentZone = zone;
-            changeDay('today'); // Starta alltid med att visa dagens priser
+            showChoiceMenu();
         }
 
-        // Denna funktion körs när man klickar på "Idag" eller "Imorgon"
+        function showChoiceMenu() {
+            document.getElementById('start-menu').style.display = 'none';
+            document.getElementById('choice-menu').style.display = 'flex';
+            document.getElementById('current-view').style.display = 'none';
+            document.getElementById('history-view').style.display = 'none';
+            document.getElementById('main-title').innerText = `Elområde ${currentZone}`;
+            document.getElementById('main-subtitle').innerText = 'Välj vilken typ av priser du vill se';
+        }
+
+        function navigateToTrack(track) {
+            document.getElementById('choice-menu').style.display = 'none';
+            
+            if (track === 'current') {
+                document.getElementById('current-view').style.display = 'block';
+                changeDay('today');
+            } else if (track === 'history') {
+                document.getElementById('history-view').style.display = 'block';
+                setupMonthDropdown();
+                changeHistoricalMonth();
+            }
+        }
+
+        /* ================== SPÅR 1: NUVARANDE PRISER ================== */
         function changeDay(day) {
             currentDay = day;
-            
-            // Uppdatera vilken knapp som ser aktiv ut i gränssnittet
             document.getElementById('btn-today').classList.toggle('active', day === 'today');
             document.getElementById('btn-tomorrow').classList.toggle('active', day === 'tomorrow');
-            
-            // Starta laddningen av priserna för det valda området och dygnet
-            loadPrices(currentZone, currentDay);
+            loadCurrentPrices(currentZone, currentDay);
         }
 
-        async function loadPrices(zone, day) {
-            document.getElementById('start-menu').style.display = 'none';
-            document.getElementById('chart-view').style.display = 'block';
-            
-            const chartContainer = document.getElementById('chart');
-            const statusText = document.getElementById('status-text');
+        async function loadCurrentPrices(zone, day) {
+            const chartContainer = document.getElementById('chart-current');
+            const statusText = document.getElementById('status-text-current');
             
             chartContainer.innerHTML = ''; 
             chartContainer.style.display = 'none';
@@ -296,11 +345,8 @@
             document.getElementById('main-title').innerText = `${dayText} Elpriser (${zone})`;
             document.getElementById('main-subtitle').innerText = 'Snittpris per timme (inkl. 25% moms)';
 
-            // Räkna ut rätt datum baserat på om användaren valt idag eller imorgon
             const targetDate = new Date();
-            if (day === 'tomorrow') {
-                targetDate.setDate(targetDate.getDate() + 1);
-            }
+            if (day === 'tomorrow') targetDate.setDate(targetDate.getDate() + 1);
 
             const year = targetDate.getFullYear();
             const month = String(targetDate.getMonth() + 1).padStart(2, '0');
@@ -310,83 +356,173 @@
 
             try {
                 const response = await fetch(apiUrl);
-                
-                // Om API:et skickar tillbaka ett felmeddelande (t.ex. 404 för att morgondagens fil inte finns än)
-                if (!response.ok) {
-                    throw new Error("Data saknas");
-                }
-
+                if (!response.ok) throw new Error("Saknas");
                 const data = await response.json();
+                renderChart(data, chartContainer, statusText);
+            } catch (error) {
+                if (day === 'tomorrow') {
+                    statusText.innerHTML = "Morgondagens priser är inte tillgängliga ännu.<br><span style='font-size:0.9rem; font-weight:normal; color:#64748b;'>Nord Pool publicerar priser strax efter kl 13:00.</span>";
+                } else {
+                    statusText.innerText = "Kunde inte hämta priserna. Kontrollera din uppkoppling.";
+                }
+            }
+        }
 
-                const hourlyPrices = {};
-                data.forEach(item => {
-                    const dateObj = new Date(item.time_start);
-                    const hour = dateObj.getHours().toString().padStart(2, '0');
-                    if (!hourlyPrices[hour]) hourlyPrices[hour] = [];
-                    hourlyPrices[hour].push(item.SEK_per_kWh);
+        /* ================== SPÅR 2: HISTORISK DATA ================== */
+        // Skapar automatiskt valalternativ för de senaste 12 månaderna i dropdown-menyn
+        function setupMonthDropdown() {
+            const dropdown = document.getElementById('month-dropdown');
+            dropdown.innerHTML = '';
+            
+            const monthNames = ["Januari", "Februari", "Mars", "April", "Maj", "Juni", "Juli", "Augusti", "September", "Oktober", "November", "December"];
+            const today = new Date();
+            
+            for (let i = 0; i < 12; i++) {
+                const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+                const year = d.getFullYear();
+                const monthNum = String(d.getMonth() + 1).padStart(2, '0');
+                const label = `${monthNames[d.getMonth()]} ${year}`;
+                
+                const option = document.createElement('option');
+                option.value = `${year}/${monthNum}`;
+                option.innerText = label;
+                dropdown.appendChild(option);
+            }
+        }
+
+        async function changeHistoricalMonth() {
+            const dropdown = document.getElementById('month-dropdown');
+            const [year, month] = dropdown.value.split('/');
+            
+            const chartContainer = document.getElementById('chart-history');
+            const statusText = document.getElementById('status-text-history');
+            
+            chartContainer.innerHTML = '';
+            chartContainer.style.display = 'none';
+            statusText.style.display = 'block';
+            statusText.innerHTML = `Beräknar historiskt snitt för ${dropdown.options[dropdown.selectedIndex].text}...<br><span style='font-size:0.85rem; font-weight:normal; color:#64748b;'>Hämtar och analyserar data timme för timme...</span>`;
+
+            document.getElementById('main-title').innerText = `Historiskt Snitt (${currentZone})`;
+            document.getElementById('main-subtitle').innerText = `Genomsnittlig profil för ${dropdown.options[dropdown.selectedIndex].text}`;
+
+            // Räkna ut hur många dagar det finns i vald månad
+            const daysInMonth = new Date(year, parseInt(month), 0).getDate();
+            const fetchPromises = [];
+
+            // Bygg upp en lista av hämtningar för ALLA dagar i hela månaden
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayStr = String(day).padStart(2, '0');
+                const url = `https://www.elprisetjustnu.se/api/v1/prices/${year}/${month}-${dayStr}_${currentZone}.json`;
+                
+                // Hämta filen. Om en dag saknas (t.ex. om man väljer den nuvarande månaden och framtida dagar inte finns), hoppa över den snyggt.
+                fetchPromises.push(
+                    fetch(url)
+                        .then(res => res.ok ? res.json() : null)
+                        .catch(() => null)
+                );
+            }
+
+            try {
+                // Kör ALLA hämtningar parallellt i bakgrunden (blixtsnabbt)
+                const allDaysData = await Promise.all(fetchPromises);
+                
+                // Slå ihop all data timme för timme
+                const hourlySums = Array(24).fill(0);
+                const hourlyCounts = Array(24).fill(0);
+
+                allDaysData.forEach(dayData => {
+                    if (dayData && Array.isArray(dayData)) {
+                        dayData.forEach(item => {
+                            const dateObj = new Date(item.time_start);
+                            const hour = dateObj.getHours();
+                            hourlySums[hour] += item.SEK_per_kWh;
+                            hourlyCounts[hour] += 1;
+                        });
+                    }
                 });
 
-                const finalAverages = [];
-                let maxPrice = 0; 
-
-                for (let i = 0; i < 24; i++) {
-                    const hourStr = i.toString().padStart(2, '0');
-                    if (hourlyPrices[hourStr]) {
-                        const sum = hourlyPrices[hourStr].reduce((a, b) => a + b, 0);
-                        const avgSEK = sum / hourlyPrices[hourStr].length; 
-                        const avgOre = (avgSEK * 100 * 1.25).toFixed(1);
-                        
-                        if (parseFloat(avgOre) > maxPrice) maxPrice = parseFloat(avgOre);
-
-                        finalAverages.push({
-                            hour: hourStr + ":00",
-                            price: parseFloat(avgOre)
+                // Bygg om strukturen så den matchar vår vanliga render-funktion
+                const processedData = [];
+                for (let hour = 0; hour < 24; hour++) {
+                    if (hourlyCounts[hour] > 0) {
+                        const avgPrice = hourlySums[hour] / hourlyCounts[hour];
+                        // Fejk-objekt som efterliknar API-strukturen så vi kan återanvända samma logik
+                        processedData.push({
+                            time_start: new Date(2000, 0, 1, hour, 0, 0).toISOString(),
+                            SEK_per_kWh: avgPrice
                         });
                     }
                 }
 
-                statusText.style.display = 'none';
-                chartContainer.style.display = 'flex';
+                if (processedData.length === 0) throw new Error("Ingen data hittades");
 
-                finalAverages.forEach(hourData => {
-                    const widthPercent = (hourData.price / (maxPrice * 1.1)) * 100;
-
-                    let priceClass = 'normal';
-                    if (hourData.price <= 50) priceClass = 'cheap';
-                    if (hourData.price >= 100) priceClass = 'expensive';
-
-                    const barWrapper = document.createElement('div');
-                    barWrapper.className = 'bar-wrapper';
-                    
-                    barWrapper.innerHTML = `
-                        <span class="bar-time">${hourData.hour}</span>
-                        <div class="bar-track">
-                            <div class="bar ${priceClass}" style="width: ${widthPercent}%;"></div>
-                        </div>
-                        <span class="bar-price">${hourData.price}</span>
-                    `;
-
-                    chartContainer.appendChild(barWrapper);
-                });
+                renderChart(processedData, chartContainer, statusText);
 
             } catch (error) {
-                // Snygg felhantering om morgondagens priser inte har släppts av Nord Pool än
-                if (day === 'tomorrow') {
-                    statusText.innerHTML = "Morgondagens priser är inte tillgängliga ännu.<br><span style='font-size:0.9rem; font-weight:normal; color:#64748b;'>Nord Pool publicerar vanligtvis nästa dygns priser strax efter kl 13:00.</span>";
-                } else {
-                    statusText.innerText = "Kunde inte hämta priserna. Kontrollera din uppkoppling.";
-                }
-                console.error("Ett fel uppstod:", error);
+                statusText.innerText = "Kunde inte beräkna den historiska datan för denna månad.";
+                console.error(error);
             }
+        }
+
+        /* ================== GEMENSAM RENDER-LOGIK ================== */
+        function renderChart(apiData, container, statusElement) {
+            statusElement.style.display = 'none';
+            container.style.display = 'flex';
+
+            const hourlyPrices = {};
+            apiData.forEach(item => {
+                const dateObj = new Date(item.time_start);
+                const hour = dateObj.getHours().toString().padStart(2, '0');
+                if (!hourlyPrices[hour]) hourlyPrices[hour] = [];
+                hourlyPrices[hour].push(item.SEK_per_kWh);
+            });
+
+            const finalAverages = [];
+            let maxPrice = 0; 
+
+            for (let i = 0; i < 24; i++) {
+                const hourStr = i.toString().padStart(2, '0');
+                if (hourlyPrices[hourStr]) {
+                    const sum = hourlyPrices[hourStr].reduce((a, b) => a + b, 0);
+                    const avgSEK = sum / hourlyPrices[hourStr].length; 
+                    const avgOre = (avgSEK * 100 * 1.25).toFixed(1);
+                    
+                    if (parseFloat(avgOre) > maxPrice) maxPrice = parseFloat(avgOre);
+
+                    finalAverages.push({
+                        hour: hourStr + ":00",
+                        price: parseFloat(avgOre)
+                    });
+                }
+            }
+
+            finalAverages.forEach(hourData => {
+                const widthPercent = (hourData.price / (maxPrice * 1.1)) * 100;
+
+                let priceClass = 'normal';
+                if (hourData.price <= 50) priceClass = 'cheap';
+                if (hourData.price >= 100) priceClass = 'expensive';
+
+                const barWrapper = document.createElement('div');
+                barWrapper.className = 'bar-wrapper';
+                
+                barWrapper.innerHTML = `
+                    <span class="bar-time">${hourData.hour}</span>
+                    <div class="bar-track">
+                        <div class="bar ${priceClass}" style="width: ${widthPercent}%;"></div>
+                    </div>
+                    <span class="bar-price">${hourData.price}</span>
+                `;
+                container.appendChild(barWrapper);
+            });
         }
     </script>
     <script>
-        // Registrera Service Worker för PWA
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('Service Worker är registrerad!'))
-                    .catch(err => console.log('Service Worker registrering misslyckades:', err));
+                    .then(reg => console.log('Service Worker registrerad!'))
+                    .catch(err => console.log('Service Worker fel:', err));
             });
         }
     </script>
